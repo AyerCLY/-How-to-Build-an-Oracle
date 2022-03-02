@@ -35,6 +35,10 @@ Once you know that the id is valid, you can go ahead and remove it from the myRe
 Note: To remove an element from a mapping, you can use something like the following: delete myMapping[key];
 Lastly, your function should fire an event to let the front-end know the price was successfully updated.
 
+Before you wrap up the callback function, you must make sure that only the oracle contract is allowed to call it.
+In this chapter, you'll create a modifier that prevents other contracts from calling your callback function.
+Note: We'll not delve into how modifiers work. If the details are fuzzy, go ahead and check out our previous lessons.
+
 */
 
 pragma solidity 0.5.0;
@@ -49,7 +53,7 @@ import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
 contract CallerContract is Ownable{
         // 1. Declare ethPrice
-      uint256 private ethPrice;
+  uint256 private ethPrice;
   // 2. Declare `EthPriceOracleInterface`
   //Let's add an EthPriceOracleInterface variable named oracleInstance. Place it above the line of code that declares the oracleAddress variable. Let's make it private.
   EthPriceOracleInterface private oracleInstance;
@@ -60,6 +64,10 @@ contract CallerContract is Ownable{
   mapping(uint256=>bool) myRequests;
   
   event newOracleAddressEvent(address oracleAddress);
+  event ReceivedNewRequestIdEvent(uint256 id);
+  
+  // 2. Declare PriceUpdatedEvent   
+  event PriceUpdatedEvent(uint256 ethPrice, uint256 id);
   
   // 3. On the next line, add the `onlyOwner` modifier to the `setOracleInstanceAddress` function definition
   function setOracleInstanceAddress (address _oracleInstanceAddress) public onlyOwner {   
@@ -79,5 +87,21 @@ contract CallerContract is Ownable{
      myRequests[id] = true;
      //The last line of your function should fire the ReceivedNewRequestIdEvent event. Pass it id as an argument.
      emit ReceivedNewRequestIdEvent(id);
+    }
+    
+          //declared a public function called callback. It takes two arguments of type uint256: _ethPrice and _id.
+   function callback(uint256 _ethPrice, uint256 _id) public onlyOracle {
+        // 3. Continue here
+     require(myRequests[_id] , "This request is not in my pending list.");
+     ethPrice = _ethPrice;
+     delete myRequests[_id];
+     emit PriceUpdatedEvent(_ethPrice, _id);
+   }
+   
+    modifier onlyOracle() {
+      require(msg.sender == oracleAddress, "You are not authorized to call this function.");
+      //The first line of code should use require to make sure that msg.sender equals oracleAddress. If not, it should throw the following error: "You are not authorized to call this function."
+      //Remember from our previous lessons that, to execute the rest of the function, you should place an _; inside your modifier. Don't forget to add it.
+      _;
     }
 }
